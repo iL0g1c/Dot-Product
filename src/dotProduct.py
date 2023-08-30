@@ -1,4 +1,6 @@
-#DP001 Consecutive patrols trigger patrol deletion
+#[X] DP001 Consecutive patrols trigger patrol deletion
+#[X] DP002 Event_ID was not incrementing
+#[ ] DP003 User registration does not work on first attempt.
 
 import discord
 from discord import app_commands
@@ -11,9 +13,11 @@ import typing
 from patrols import patrolOn, patrolOff, deleteDuplicatePatrols
 from wins import kill, disable
 from top import getLeaderboard
+from admin import makeSuperuser
+from errors import getErrorMessage
 
 load_dotenv()
-BOT_TOKEN = os.getenv("DISCORD_TOKEN")
+BOT_TOKEN = os.getenv("DISCORD_ALPHA_TOKEN")
 
 class MyClient(discord.Client):
     def __init__(self):
@@ -192,6 +196,7 @@ class Patrol(discord.ui.View):
             embed.add_field(name = "Start Time: ", value = start_time)
             embed.add_field(name = "End Time: ", value = datetime_amount)
             embed.add_field(name = "Duration: ", value = duration)
+            embed.add_field(name = "ID: ", value = event_id)
             await interaction.response.send_message(embed=embed)
 
     class PatrolTypeSelect(discord.ui.Select):
@@ -264,6 +269,29 @@ async def top(interaction: discord.Interaction, mode: app_commands.Choice[str], 
         description = leaderboard,
         color = discord.Colour.blue()
     )
+    await interaction.response.send_message(embed=embed)
+
+@client.tree.command(name="superuser", description="Make a user a superuser.")
+@app_commands.describe(action="You can either add or remove a superuser.", user="The user you would like superuser.")
+@app_commands.choices(
+    action=[
+        app_commands.Choice(name="add", value=1),
+        app_commands.Choice(name="remove", value=2)
+    ]
+)
+@app_commands.checks.has_permissions(manage_roles=True)
+async def superuser(interaction: discord.Interaction, action: app_commands.Choice[int], user: discord.Member):
+    error = makeSuperuser(user.id, interaction.guild.id, action.value)
+
+    if error:
+        error_msg = getErrorMessage(error)
+        embed = discord.Embed(title = error_msg, color = discord.Colour.red())
+    else:
+        if action.value == 1:
+            response = f"Made {user.name} a DotProduct superuser."
+        elif action.value == 2:
+            response = f"Made {user.name} not a DotProduct superuser."
+        embed = discord.Embed(title = response, color = discord.Colour.blue())
     await interaction.response.send_message(embed=embed)
 
 client.run(BOT_TOKEN)

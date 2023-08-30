@@ -1,7 +1,7 @@
 from pymongo import MongoClient
 from dotenv import load_dotenv
 import os
-from bson import Int64
+from bson import Int64, ObjectId
 from datetime import timedelta
 
 load_dotenv()
@@ -62,9 +62,9 @@ def patrolOn(user_id, server_id, datetime_amount, patrol_type):
             {"server_id": Int64(server_id)}
         ]
     }))# check if it adds new users
-    print(users)
+    print(users)    
     if users == []:
-        print(users)
+        print(1)
         userCollection.insert_one({
             "user_id": Int64(user_id),
             "server_id": Int64(server_id),
@@ -88,7 +88,7 @@ def patrolOn(user_id, server_id, datetime_amount, patrol_type):
 
 
     globalCollection = db["global_data"]
-    globalCollection.update_one({"_id": 1}, {"$inc": {"ids": 1}})
+    globalCollection.update_one({"_id": ObjectId("64ee52bffc2df089ecb65e72")}, {"$inc": {"ids": 1}})
     event_id = list(globalCollection.find())[0]["ids"]
     patrolCollection.insert_one({
         "id": Int64(event_id),
@@ -115,7 +115,10 @@ def patrolOff(user_id, server_id, datetime_amount):
         ]
     }))[0]
 
-    patrolCollection.update_one({"id": patrol["id"]}, {"$set": {"end": datetime_amount}})
+    patrolCollection.update_one(
+        {"id": Int64(patrol["id"])},
+        {"$set": {"end": datetime_amount}}
+    )
 
     duration = datetime_amount - patrol["start"]
     start_time = patrol["start"]

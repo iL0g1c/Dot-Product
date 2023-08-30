@@ -15,6 +15,7 @@ from wins import kill, disable
 from top import getLeaderboard
 from admin import makeSuperuser
 from errors import getErrorMessage
+from userlogs import updatePage
 
 load_dotenv()
 BOT_TOKEN = os.getenv("DISCORD_ALPHA_TOKEN")
@@ -293,5 +294,76 @@ async def superuser(interaction: discord.Interaction, action: app_commands.Choic
             response = f"Made {user.name} not a DotProduct superuser."
         embed = discord.Embed(title = response, color = discord.Colour.blue())
     await interaction.response.send_message(embed=embed)
+
+class UserLogs(discord.ui.View):
+    def __init__(self, user, mode, items):
+        self.user = user
+        self.mode = mode
+        self.items = items
+        self.embed = discord.Embed(
+            title = f"{self.user}'s {self.mode} log",
+            description = f"{self.user}, {self.mode}, {self.items}",
+            color = discord.Colour.blue()
+        )
+        super().__init__()
+        self.createView()
+        self.page = 1
+        
+    def createView(self):
+        UserLogs.BackwardButton(self)
+        UserLogs.ForwardButton(self)
+
+    class ForwardButton(discord.ui.Button):
+        def __init__(self, userlogView):
+            self.userlogView = userlogView
+            super().__init__(
+                style=discord.ButtonStyle.grey,
+                label="Next",
+                row=1
+            )
+            self.userlogView.add_item(self)
+    
+        async def callback(self, interaction: discord.Interaction):
+            self.page += 1
+            updatePage(self.user, self.mode, self.items, self.page)
+            await interaction.response.edit_message(embed=self.userlogsView.embed, view=self.userlogsView)
+
+    class BackwardButton(discord.ui.Button):
+        def __init__(self, userlogView):
+            self.userlogView = userlogView
+            super().__init__(
+                style=discord.ButtonStyle.grey,
+                label="Back",
+                row=1
+            )
+            self.userlogView.add_item(self)
+        
+        async def callback(self, interaction: discord.Interaction):
+            if self.page > 1:
+                self.page -= 1
+            description = updatePage(self.user, self.mode, self.items, self.page)
+            self.embed = discord.Embed(
+                title = f"{self.user}'s {self.mode} log",
+                description = description,
+                color = discord.Colour.blue()
+            )
+            await interaction.response.edit_message(embed=self.userlogsView.embed, view=self.userlogsView)
+
+
+@client.tree.command(name="userlogs", description="View the event logs for each user.")
+@app_commands.describe(user="The user you want to view logs for.", mode="The type of event you would like to query.", items="The number of items per page.")
+@app_commands.choices(
+    mode=[
+        app_commands.Choice(name="flight_patrols", value="flights"),
+        app_commands.Choice(name="radar_patrols", value="radars"),
+        app_commands.Choice(name="kills", value="kills"),
+        app_commands.Choice(name="disables", value="disables"),
+        app_commands.Choice(name="sars", value="sars")
+    ]
+)
+async def userlogs(interaction: discord.Interaction, user: discord.Member, mode: app_commands.Choice[str], items: typing.Optional[str]):
+    view = UserLogs(user.name, mode.value, items)
+
+    await interaction.response.send_message(embed=view.embed, view=view, ephemeral=True)
 
 client.run(BOT_TOKEN)

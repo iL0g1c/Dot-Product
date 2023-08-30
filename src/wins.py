@@ -17,7 +17,7 @@ def kill(user_id, server_id):
 
     killCollection = db["kills"]
     killCollection.insert_one({
-        "id": event_id,
+        "id": Int64(event_id),
         "user_id": Int64(user_id),
         "server_id": Int64(server_id),
     })
@@ -31,7 +31,7 @@ def disable(user_id, server_id):
 
     disableCollection = db["disables"]
     disableCollection.insert_one({
-        "id": event_id,
+        "id": Int64(event_id),
         "user_id": Int64(user_id),
         "server_id": Int64(server_id),
     })

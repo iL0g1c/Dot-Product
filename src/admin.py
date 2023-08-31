@@ -39,4 +39,61 @@ def makeSuperuser(user_id, server_id, action):
         )
     return None
 
-# add removal
+def removeEvent(user_id, server_id, event_id):
+    db = client["dotproduct"]
+
+    user = list(db["users"].find({
+        "$and": [
+            {"user_id": user_id},
+            {"server_id": server_id}
+        ]
+    }))
+
+    if not user:
+        return 1
+    else:
+        if not user[0]["superuser"]:
+            return 6
+
+
+    data = list(db["patrols"].find({
+        "$and": [
+            {"server_id": server_id},
+            {"id": event_id}
+         ]
+    }))
+    if data:
+        db["patrols"].delete_one({"id": event_id})
+        return None
+
+    data = list(db["kills"].find({
+        "$and": [
+            {"server_id": server_id},
+            {"id": event_id}
+         ]
+    }))
+    if data:
+        db["kills"].delete_one({"id": event_id})
+        return None
+
+    data = list(db["disables"].find({
+        "$and": [
+            {"server_id": server_id},
+            {"id": event_id}
+         ]
+    }))
+    if data:
+        db["disables"].delete_one({"id": event_id})
+        return None
+
+    data = list(db["sars"].find({
+        "$and": [
+            {"server_id": server_id},
+            {"id": event_id}
+         ]
+    }))
+    if data:
+        db["sars"].delete_one({"id": event_id})
+        return None
+    
+    return 7

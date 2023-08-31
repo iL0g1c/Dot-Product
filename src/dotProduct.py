@@ -14,7 +14,7 @@ import typing
 from patrols import patrolOn, patrolOff, deleteDuplicatePatrols
 from wins import kill, disable
 from top import getLeaderboard
-from admin import makeSuperuser
+from admin import makeSuperuser, removeEvent
 from errors import getErrorMessage
 from userlogs import updatePage
 
@@ -415,5 +415,22 @@ async def userlogs(interaction: discord.Interaction, user: discord.Member, mode:
     view = UserLogs(user, interaction.guild.id, mode.value, items)
 
     await interaction.response.send_message(embed=view.embed, view=view, ephemeral=True)
+
+@client.tree.command(name="remev", description="Remove an event (patrol/kill/etc) from your server.")
+@app_commands.describe(event_id="Event IDs are listed using the userlogs command.")
+async def remev(interaction: discord.Interaction, event_id: int):
+    error = removeEvent(interaction.user.id, interaction.guild.id, event_id)
+    if error:
+        error_msg = getErrorMessage(error)
+        embed = discord.Embed(
+            title = error_msg,
+            color = discord.Colour.red()
+        )
+    else:
+        embed = discord.Embed(
+            title=f"Removed event **{event_id}** from the database.",
+            color=discord.Colour.red()
+        )
+    await interaction.response.send_message(embed=embed)
 
 client.run(BOT_TOKEN)

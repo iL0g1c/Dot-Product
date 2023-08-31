@@ -10,3 +10,7 @@ def getErrorMessage(error):
             return "Already on the first page."
         case 5:
             return "Already on the last page."
+        case 6:
+            return "You are not a superuser. Have someone use /superuser."
+        case 7:
+            return "Could not find that event in the database."

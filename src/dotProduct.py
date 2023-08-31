@@ -1,6 +1,7 @@
 #[X] DP001 Consecutive patrols trigger patrol deletion
 #[X] DP002 Event_ID was not incrementing
 #[ ] DP003 User registration does not work on first attempt.
+#[X] DP004 Kill log was missing the time stamp parameter.
 
 import discord
 from discord import app_commands
@@ -148,7 +149,8 @@ class Patrol(discord.ui.View):
             self.kills = 0
             
         async def callback(self, interaction: discord.Interaction):
-            kill(interaction.user.id, interaction.guild.id)
+            datetime_amount = datetime.now().replace(microsecond=0)
+            kill(interaction.user.id, interaction.guild.id, datetime_amount)
             self.kills += 1
             killButton = [x for x in self.patrolView.children if x.custom_id == "kill"][0]
             killButton.label = f"Kills ({self.kills})"
@@ -167,7 +169,8 @@ class Patrol(discord.ui.View):
             self.disables = 0
 
         async def callback(self, interaction: discord.Interaction):
-            disable(interaction.user.id, interaction.guild.id)
+            datetime_amount = datetime.now().replace(microsecond=0)
+            disable(interaction.user.id, interaction.guild.id, datetime_amount)
             self.disables += 1
             disableButton = [x for x in self.patrolView.children if x.custom_id == "disable"][0]
             disableButton.label = f"Dissables ({self.disables})"
@@ -296,54 +299,95 @@ async def superuser(interaction: discord.Interaction, action: app_commands.Choic
     await interaction.response.send_message(embed=embed)
 
 class UserLogs(discord.ui.View):
-    def __init__(self, user, mode, items):
+    def __init__(self, user, server_id, mode, items):
         self.user = user
         self.mode = mode
-        self.items = items
-        self.embed = discord.Embed(
-            title = f"{self.user}'s {self.mode} log",
-            description = f"{self.user}, {self.mode}, {self.items}",
-            color = discord.Colour.blue()
-        )
-        super().__init__()
-        self.createView()
+        self.items = int(items)
         self.page = 1
+        super().__init__()
+        description, edge_alert, error = updatePage(self.user.id, server_id, self.mode, self.items, self.page)
+        if error:
+            self.page -= 1
+            error_msg = getErrorMessage(error)
+            self.embed = discord.Embed(title = error_msg, color = discord.Colour.red())
+            return
+        else:
+            self.embed = discord.Embed(
+                title = f"{self.user}'s {self.mode} log",
+                description = description,
+                color = discord.Colour.blue()
+            )
+            self.createView(edge_alert)
         
-    def createView(self):
+    def createView(self, edge_alert):
         UserLogs.BackwardButton(self)
         UserLogs.ForwardButton(self)
 
+        forwardButton = [x for x in self.children if x.custom_id == "forward"][0]
+        if edge_alert:
+            forwardButton.disabled = True
+
     class ForwardButton(discord.ui.Button):
-        def __init__(self, userlogView):
-            self.userlogView = userlogView
+        def __init__(self, userlogsView):
+            self.userlogsView = userlogsView
             super().__init__(
                 style=discord.ButtonStyle.grey,
                 label="Next",
+                custom_id="forward",
                 row=1
             )
-            self.userlogView.add_item(self)
+            self.userlogsView.add_item(self)
     
         async def callback(self, interaction: discord.Interaction):
-            self.page += 1
-            updatePage(self.user, self.mode, self.items, self.page)
+            self.userlogsView.page += 1
+            description, edge_alert, error = updatePage(self.userlogsView.user.id, interaction.guild.id, self.userlogsView.mode, self.userlogsView.items, self.userlogsView.page)
+            if error == 5:
+                self.userlogsView.page -= 1
+
+            backwardButton = [x for x in self.userlogsView.children if x.custom_id == "back"][0]
+            if self.userlogsView.page >= 1:
+                backwardButton.disabled = False
+
+            forwardButton = [x for x in self.userlogsView.children if x.custom_id == "forward"][0]
+            if edge_alert:
+                forwardButton.disabled = True
+
+            self.userlogsView.embed = discord.Embed(
+                title = f"{self.userlogsView.user.name}'s {self.userlogsView.mode} logs",
+                description = description,
+                color = discord.Colour.blue()
+            )
             await interaction.response.edit_message(embed=self.userlogsView.embed, view=self.userlogsView)
 
     class BackwardButton(discord.ui.Button):
-        def __init__(self, userlogView):
-            self.userlogView = userlogView
+        def __init__(self, userlogsView):
+            self.userlogsView = userlogsView
             super().__init__(
                 style=discord.ButtonStyle.grey,
                 label="Back",
-                row=1
+                custom_id="back",
+                row=1,
+                disabled=True
             )
-            self.userlogView.add_item(self)
+            self.userlogsView.add_item(self)
         
         async def callback(self, interaction: discord.Interaction):
-            if self.page > 1:
-                self.page -= 1
-            description = updatePage(self.user, self.mode, self.items, self.page)
-            self.embed = discord.Embed(
-                title = f"{self.user}'s {self.mode} log",
+            self.userlogsView.page -= 1
+            description, edge_alert, error = updatePage(self.userlogsView.user.id, interaction.guild.id, self.userlogsView.mode, self.userlogsView.items, self.userlogsView.page)
+
+            if error == 4:
+                self.userlogsView.page += 1                
+
+            backwardButton = [x for x in self.userlogsView.children if x.custom_id == "back"][0]
+            if self.userlogsView.page <= 1:
+                backwardButton.disabled = True
+
+            forwardButton = [x for x in self.userlogsView.children if x.custom_id == "forward"][0]
+            if not edge_alert:
+                forwardButton.disabled = False
+
+            self.userlogsView.embed = discord.Embed(
+                title = f"{self.userlogsView.user.name}'s {self.userlogsView.mode} logs",
                 description = description,
                 color = discord.Colour.blue()
             )
@@ -351,7 +395,11 @@ class UserLogs(discord.ui.View):
 
 
 @client.tree.command(name="userlogs", description="View the event logs for each user.")
-@app_commands.describe(user="The user you want to view logs for.", mode="The type of event you would like to query.", items="The number of items per page.")
+@app_commands.describe(
+    user="The user you want to view logs for.",
+    mode="The type of event you would like to query.",
+    items="The number of items per page."
+)
 @app_commands.choices(
     mode=[
         app_commands.Choice(name="flight_patrols", value="flights"),
@@ -362,7 +410,9 @@ class UserLogs(discord.ui.View):
     ]
 )
 async def userlogs(interaction: discord.Interaction, user: discord.Member, mode: app_commands.Choice[str], items: typing.Optional[str]):
-    view = UserLogs(user.name, mode.value, items)
+    if items == None:
+        items = 10
+    view = UserLogs(user, interaction.guild.id, mode.value, items)
 
     await interaction.response.send_message(embed=view.embed, view=view, ephemeral=True)
 

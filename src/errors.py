@@ -6,3 +6,7 @@ def getErrorMessage(error):
             return "This user is already a superuser."
         case 3:
             return "This user is already not a superuser."
+        case 4:
+            return "Already on the first page."
+        case 5:
+            return "Already on the last page."

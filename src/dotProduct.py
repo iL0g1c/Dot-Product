@@ -1,6 +1,6 @@
 #[X] DP001 Consecutive patrols trigger patrol deletion
 #[X] DP002 Event_ID was not incrementing
-#[ ] DP003 User registration does not work on first attempt.
+#[X] DP003 User registration does not work on first attempt.
 #[X] DP004 Kill log was missing the time stamp parameter.
 
 import discord
@@ -19,7 +19,7 @@ from errors import getErrorMessage
 from userlogs import updatePage
 
 load_dotenv()
-BOT_TOKEN = os.getenv("DISCORD_ALPHA_TOKEN")
+BOT_TOKEN = os.getenv("DISCORD_TOKEN")
 
 class MyClient(discord.Client):
     def __init__(self):

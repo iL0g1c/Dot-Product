@@ -14,3 +14,5 @@ def getErrorMessage(error):
             return "You are not a superuser. Have someone use /superuser."
         case 7:
             return "Could not find that event in the database."
+        case 8:
+            return "You have not set a log channel yet. Use /setChannel"

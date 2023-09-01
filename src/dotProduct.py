@@ -1,8 +1,8 @@
-#[X] DP001 Consecutive patrols trigger patrol deletion
-#[X] DP002 Event_ID was not incrementing
-#[X] DP003 User registration does not work on first attempt.
-#[X] DP004 Kill log was missing the time stamp parameter.
+# [X] Allow setting log channel
+# [X] Allow inputing location and description. (discord.ui.textinput)
 
+
+from ctypes import get_errno
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -14,12 +14,12 @@ import typing
 from patrols import patrolOn, patrolOff, deleteDuplicatePatrols
 from wins import kill, disable
 from top import getLeaderboard
-from admin import makeSuperuser, removeEvent
+from admin import makeSuperuser, removeEvent, savePatrolChannel, getLogChannel
 from errors import getErrorMessage
 from userlogs import updatePage
 
 load_dotenv()
-BOT_TOKEN = os.getenv("DISCORD_TOKEN")
+BOT_TOKEN = os.getenv("DISCORD_ALPHA_TOKEN")
 
 class MyClient(discord.Client):
     def __init__(self):
@@ -189,19 +189,39 @@ class Patrol(discord.ui.View):
         async def callback(self, interaction: discord.Interaction):
             datetime_amount = datetime.now().replace(microsecond=0)
             duration, start_time, event_id, patrol_type = patrolOff(interaction.user.id, interaction.guild.id, datetime_amount)
-
-            embed = discord.Embed(
+            logEmbed = discord.Embed(
                 title = "Patrol Log",
                 description = f"{interaction.user.name} has completed their patrol.",
                 color = discord.Colour.blue()
             )
-            embed.add_field(name = "Name: ", value = interaction.user.name)
-            embed.add_field(name = "Patrol Type", value = self.patrolView.selectedPatrolType)
-            embed.add_field(name = "Start Time: ", value = start_time)
-            embed.add_field(name = "End Time: ", value = datetime_amount)
-            embed.add_field(name = "Duration: ", value = duration)
-            embed.add_field(name = "ID: ", value = event_id)
-            await interaction.response.send_message(embed=embed)
+            logEmbed.add_field(name = "Name: ", value = interaction.user.name)
+            logEmbed.add_field(name = "Patrol Type", value = self.patrolView.selectedPatrolType)
+            logEmbed.add_field(name = "Start Time: ", value = start_time)
+            logEmbed.add_field(name = "End Time: ", value = datetime_amount)
+            logEmbed.add_field(name = "Duration: ", value = duration)
+            logEmbed.add_field(name = "ID: ", value = event_id)
+
+            channel_id, error = getLogChannel(interaction.guild.id)
+            if error:
+                error_msg = getErrorMessage(error)
+                errorEmbed = discord.Embed(
+                    title = "Your server doesn't have a log channel.",
+                    description = "Contact an admin for help. Sending log here.",
+                    color = discord.Colour.blue()
+                )
+                await interaction.response.send_message(embed=errorEmbed)
+                await interaction.followup.send(embed=logEmbed)
+
+
+            else:
+                channel = client.get_channel(channel_id)
+                successEmbed = discord.Embed(
+                    title = "Patrol Complete",
+                    description = f"Your log has been stored in {channel.name}",
+                    color = discord.Colour.blue()
+                )
+                await interaction.response.send_message(embed=successEmbed)
+                await channel.send(embed=logEmbed)
 
     class PatrolTypeSelect(discord.ui.Select):
         def __init__(self, patrolView):
@@ -431,6 +451,17 @@ async def remev(interaction: discord.Interaction, event_id: int):
             title=f"Removed event **{event_id}** from the database.",
             color=discord.Colour.red()
         )
+    await interaction.response.send_message(embed=embed)
+
+@client.tree.command(name="setchannel", description="Set the channel for patrol logs to be posted in.")
+@app_commands.describe(channel="The ID of the channel to recieve patrol logs in.")
+async def setChannel(interaction: discord.Interaction, channel: discord.TextChannel):
+    savePatrolChannel(channel.id, interaction.guild.id)
+    embed = discord.Embed(
+        title = f"Successfully set the log channel to: {channel.name}",
+        color = discord.Colour.red()
+    )
+
     await interaction.response.send_message(embed=embed)
 
 client.run(BOT_TOKEN)

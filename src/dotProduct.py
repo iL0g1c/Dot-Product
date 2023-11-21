@@ -1,12 +1,13 @@
 # [X] Allow setting log channel
-# [X] Allow inputing location and description. (discord.ui.textinput)
+# [X] Allow inputing location and description.
+# [X] Fixed DP0001. Top errored when not providing a value for time_span
 
 
-from ctypes import get_errno
 import discord
 from discord import app_commands
 from discord.ext import commands
 import os
+from discord.interactions import Interaction
 from dotenv import load_dotenv
 from datetime import datetime
 import typing
@@ -19,7 +20,7 @@ from errors import getErrorMessage
 from userlogs import updatePage
 
 load_dotenv()
-BOT_TOKEN = os.getenv("DISCORD_ALPHA_TOKEN")
+BOT_TOKEN = os.getenv("DISCORD_TOKEN")
 
 class MyClient(discord.Client):
     def __init__(self):
@@ -59,6 +60,7 @@ async def ping(interaction: discord.Interaction):
 
 class DeleteOpenPatrols(discord.ui.View):
     def __init__(self):
+        self.author_id = 0
         super().__init__()
 
     @discord.ui.button(
@@ -84,11 +86,18 @@ class DeleteOpenPatrols(discord.ui.View):
             color = discord.Colour.blue()
         )
         await interaction.response.edit_message(embed=embed, view=None)
+        
+    async def interaction_check(self, interaction: Interaction):
+        if interaction.user.id != self.author_id:
+            await interaction.response.send_message(content="This isn't your patrol.", ephemeral=True)
+            return False
+        return True
 
 class Patrol(discord.ui.View):
     def __init__(self):
         super().__init__()
         self.createView()
+        self.author_id = 0
         self.selectedPatrolType = None
         
     def createView(self):
@@ -117,6 +126,7 @@ class Patrol(discord.ui.View):
             event_id, error = patrolOn(interaction.user.id, interaction.guild.id, datetime_amount, self.patrolView.selectedPatrolType)
             if error == 1:
                 askView = DeleteOpenPatrols()
+                askView.author_id = interaction.user.id
                 embed = discord.Embed(
                     title="You already have a patrol open.",
                     description="Would you like to delete it?",
@@ -173,7 +183,7 @@ class Patrol(discord.ui.View):
             disable(interaction.user.id, interaction.guild.id, datetime_amount)
             self.disables += 1
             disableButton = [x for x in self.patrolView.children if x.custom_id == "disable"][0]
-            disableButton.label = f"Dissables ({self.disables})"
+            disableButton.label = f"Disables ({self.disables})"
             await interaction.response.edit_message(view=self.patrolView)
 
     class EndPatrolButton(discord.ui.Button):
@@ -187,20 +197,50 @@ class Patrol(discord.ui.View):
             self.patrolView.add_item(self)
     
         async def callback(self, interaction: discord.Interaction):
-            datetime_amount = datetime.now().replace(microsecond=0)
-            duration, start_time, event_id, patrol_type = patrolOff(interaction.user.id, interaction.guild.id, datetime_amount)
+            self.datetime_amount = datetime.now().replace(microsecond=0)
+            self.duration, self.start_time, self.event_id, self.patrol_type = patrolOff(interaction.user.id, interaction.guild.id, self.datetime_amount)
+            self.patrolView.infoModal = Patrol.InfoModal(self.patrolView, self)
+            
+            await interaction.response.send_modal(self.patrolView.infoModal)
+            
+
+    class InfoModal(discord.ui.Modal):
+        def __init__(self, patrolView, patrolStats):
+            self.patrolView = patrolView
+            self.patrolStats = patrolStats
+            super().__init__(
+                title="Additional Information",
+                timeout=None
+            )
+
+            self.location = discord.ui.TextInput(
+                style=discord.TextStyle.short,
+                label = "Location",
+                required = True,
+                row = 0
+            )
+            self.add_item(self.location)
+
+            self.description = discord.ui.TextInput(
+                style=discord.TextStyle.long,
+                label = "Description",
+                required = True,
+                row = 1
+            )
+            self.add_item(self.description)
+
+        async def on_submit(self, interaction: discord.Interaction):
             logEmbed = discord.Embed(
                 title = "Patrol Log",
-                description = f"{interaction.user.name} has completed their patrol.",
+                description = f"{interaction.user.name} has completed their patrol.\n **Location:** {self.location.value}\n **Description:** {self.description.value}",
                 color = discord.Colour.blue()
             )
             logEmbed.add_field(name = "Name: ", value = interaction.user.name)
             logEmbed.add_field(name = "Patrol Type", value = self.patrolView.selectedPatrolType)
-            logEmbed.add_field(name = "Start Time: ", value = start_time)
-            logEmbed.add_field(name = "End Time: ", value = datetime_amount)
-            logEmbed.add_field(name = "Duration: ", value = duration)
-            logEmbed.add_field(name = "ID: ", value = event_id)
-
+            logEmbed.add_field(name = "Start Time: ", value = self.patrolStats.start_time)
+            logEmbed.add_field(name = "End Time: ", value = self.patrolStats.datetime_amount)
+            logEmbed.add_field(name = "Duration: ", value = self.patrolStats.duration)
+            logEmbed.add_field(name = "ID: ", value = self.patrolStats.event_id)
             channel_id, error = getLogChannel(interaction.guild.id)
             if error:
                 error_msg = getErrorMessage(error)
@@ -248,16 +288,23 @@ class Patrol(discord.ui.View):
             startPatrolButton = [x for x in self.patrolView.children if x.custom_id == "start"][0]
             startPatrolButton.disabled = False
             await interaction.response.edit_message(view=self.patrolView)
+    async def interaction_check(self, interaction: Interaction):
+        if interaction.user.id != self.author_id:
+            await interaction.response.send_message(content="This isn't your patrol.", ephemeral=True)
+            return False
+        return True
+        
 
 @client.tree.command(name="patrol", description="Create a patrol.")
 async def patrol(interaction: discord.Interaction):
     view = Patrol()
+    view.author_id = interaction.user.id
 
     embed = discord.Embed(
         title=f"{interaction.user.name}'s Patrol",
         color = discord.Colour.blue()
     )
-    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+    await interaction.response.send_message(embed=embed, view=view)
 
 @client.tree.command(name="top", description="View your forces statistics.")
 @app_commands.describe(mode="The type of event you would like to query.", time_span="The time span you would like to query.")
@@ -277,6 +324,8 @@ async def patrol(interaction: discord.Interaction):
     ]
 )
 async def top(interaction: discord.Interaction, mode: app_commands.Choice[str], time_span: typing.Optional[app_commands.Choice[str]]):
+    if time_span == None:
+        time_span = app_commands.Choice(name="month", value="month")
     raw_events = getLeaderboard(interaction.guild.id, mode.value, time_span.value)
     leaderboard = ""
     for i in range(len(raw_events)):
@@ -322,6 +371,7 @@ class UserLogs(discord.ui.View):
     def __init__(self, user, server_id, mode, items):
         self.user = user
         self.mode = mode
+        self.author_id = 0
         self.items = int(items)
         self.page = 1
         super().__init__()
@@ -412,6 +462,12 @@ class UserLogs(discord.ui.View):
                 color = discord.Colour.blue()
             )
             await interaction.response.edit_message(embed=self.userlogsView.embed, view=self.userlogsView)
+            
+    async def interaction_check(self, interaction: Interaction):
+        if interaction.user.id != self.author_id:
+            await interaction.response.send_message(content="This isn't your patrol.", ephemeral=True)
+            return False
+        return True
 
 
 @client.tree.command(name="userlogs", description="View the event logs for each user.")
@@ -433,8 +489,9 @@ async def userlogs(interaction: discord.Interaction, user: discord.Member, mode:
     if items == None:
         items = 10
     view = UserLogs(user, interaction.guild.id, mode.value, items)
+    view.author_id = interaction.user.id
 
-    await interaction.response.send_message(embed=view.embed, view=view, ephemeral=True)
+    await interaction.response.send_message(embed=view.embed, view=view)
 
 @client.tree.command(name="remev", description="Remove an event (patrol/kill/etc) from your server.")
 @app_commands.describe(event_id="Event IDs are listed using the userlogs command.")

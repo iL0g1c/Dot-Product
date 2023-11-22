@@ -55,6 +55,7 @@ def convert():
             userCollection.insert_one({
                 "user_id": Int64(item["user"]),
                 "server_id": Int64(guild["id"]),
+                "superuser": item["admin"],
                 "sar_needed": sar_needed
             })
 

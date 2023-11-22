@@ -97,3 +97,32 @@ def removeEvent(user_id, server_id, event_id):
         return None
     
     return 7
+
+def savePatrolChannel(channel_id, server_id):
+    db = client["dotproduct"]
+    guildCollection = db["guilds"]
+
+    # check if guild is registered
+    guild = list(guildCollection.find({"id": server_id}))
+    if not guild:
+        # create guild document
+        guildCollection.insert_one({
+            "id": Int64(server_id),
+            "logChannel": channel_id
+        })
+    else:
+        # update guild document
+        guildCollection.update_one(
+            {"id": Int64(server_id)},
+            {"logChannel": {"$set": Int64(server_id)}}
+        )
+
+def getLogChannel(server_id):
+    db = client["dotproduct"]
+    guildCollection = db["guilds"]
+    
+    guild = list(guildCollection.find({"id": server_id}))
+    if not guild:
+        return None, 8
+    else:
+        return guild[0]["logChannel"], None

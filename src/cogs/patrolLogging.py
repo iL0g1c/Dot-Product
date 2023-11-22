@@ -84,7 +84,7 @@ class PatrolLogging(commands.Cog):
     async def userlogs(self, interaction: discord.Interaction, user: discord.Member, mode: app_commands.Choice[str], items: typing.Optional[str]):
         if items == None:
             items = 10
-        view = UserLogs(user, interaction.guild.id, mode.value, items, self.client)
+        view = UserLogs(user, interaction.guild.id, mode.value, items)
         view.author_id = interaction.user.id
 
         await interaction.response.send_message(embed=view.embed, view=view)

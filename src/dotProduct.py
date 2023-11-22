@@ -1,19 +1,15 @@
-# [X] Allow setting log channel
-# [X] Allow inputing location and description.
-# [X] Fixed DP0001. Top errored when not providing a value for time_span
-
-
 import discord
 from discord import app_commands
 from discord.ext import commands
 import os
 from dotenv import load_dotenv
+import asyncio
 
 from errors import getErrorMessage
 from admin import makeSuperuser, savePatrolChannel
 
 load_dotenv()
-BOT_TOKEN = os.getenv("DISCORD_ALPHA_TOKEN")
+BOT_TOKEN = os.getenv("DISCORD_TOKEN")
 
 class DotProductClient(commands.Bot):
     def __init__(self):
@@ -44,7 +40,7 @@ class DotProductClient(commands.Bot):
     async def _load_extensions(self):
         for extension in ("patrolLogging",):
             await self.load_extension(f"cogs.{extension}")
-
+            
 client = DotProductClient()
 
 @client.event
@@ -97,4 +93,8 @@ async def setChannel(interaction: discord.Interaction, channel: discord.TextChan
 
     await interaction.response.send_message(embed=embed)
 
-client.run(BOT_TOKEN)
+def main():
+    client.run(BOT_TOKEN)
+
+if __name__ in "__main__":
+    main()

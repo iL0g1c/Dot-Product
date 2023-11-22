@@ -21,20 +21,26 @@ def makeSuperuser(user_id, server_id, action):
     if user == []:
         # User not in database.
         return 1
-
     if action == 1:
         if user[0]["superuser"]:
             # Already a super user.
             return 2
+        print(user_id, server_id)
         userCollection.update_one(
-            {"user_id": Int64(user_id)},
+            {"$and": [
+                {"user_id": {"$eq": Int64(user_id)}},
+                {"server_id": {"$eq": Int64(server_id)}}
+            ]},
             {"$set": {"superuser": True}}
         )
     elif action == 2:
         if not user[0]["superuser"]:
             return 3
         userCollection.update_one(
-            {"user_id": Int64(user_id)},
+            {"$and": [
+                {"user_id": {"$eq": Int64(user_id)}},
+                {"server_id": {"$eq": Int64(server_id)}}
+            ]},
             {"$set": {"superuser": False}}
         )
     return None
@@ -113,8 +119,8 @@ def savePatrolChannel(channel_id, server_id):
     else:
         # update guild document
         guildCollection.update_one(
-            {"id": Int64(server_id)},
-            {"logChannel": {"$set": Int64(server_id)}}
+            {"id": {"$eq": Int64(server_id)}},
+            {"$set": {"logChannel": channel_id}}
         )
 
 def getLogChannel(server_id):

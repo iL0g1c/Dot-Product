@@ -56,12 +56,13 @@ def patrolOn(user_id, server_id, datetime_amount, patrol_type):
     # create start patrol log
     db = client["dotproduct"]
     userCollection = db["users"]
-    users = list(userCollection.find({
+    users = userCollection.find({
         "$and": [
             {"user_id": Int64(user_id)},
             {"server_id": Int64(server_id)}
         ]
-    })) # check if it adds new users  
+    }) # check if it adds new users
+
     if users == []:
         userCollection.insert_one({
             "user_id": Int64(user_id),

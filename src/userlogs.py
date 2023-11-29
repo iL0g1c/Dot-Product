@@ -1,4 +1,3 @@
-# add log page updater
 from pymongo import MongoClient
 from dotenv import load_dotenv
 import os

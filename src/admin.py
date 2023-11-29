@@ -1,7 +1,7 @@
 from pymongo import MongoClient
 from dotenv import load_dotenv
 import os
-from bson import Int64, ObjectId
+from bson import Int64
 
 load_dotenv()
 DATABASE_TOKEN = os.getenv("DATABASE_TOKEN")
@@ -25,7 +25,6 @@ def makeSuperuser(user_id, server_id, action):
         if user[0]["superuser"]:
             # Already a super user.
             return 2
-        print(user_id, server_id)
         userCollection.update_one(
             {"$and": [
                 {"user_id": {"$eq": Int64(user_id)}},
@@ -114,16 +113,34 @@ def savePatrolChannel(channel_id, server_id):
         # create guild document
         guildCollection.insert_one({
             "id": Int64(server_id),
-            "logChannel": channel_id
+            "patrolLogChannel": channel_id
         })
     else:
         # update guild document
         guildCollection.update_one(
             {"id": {"$eq": Int64(server_id)}},
-            {"$set": {"logChannel": channel_id}}
+            {"$set": {"patrolLogChannel": channel_id}}
         )
 
-def getLogChannel(server_id):
+def saveAutomatedRadarChannel(channel_id, server_id):
+    db = client["dotproduct"]
+    guildCollection = db["guilds"]
+    
+    guild = list(guildCollection.find({"id": server_id}))
+    if not guild:
+        # create guild document
+        guildCollection.insert_one({
+            "id": Int64(server_id),
+            "radarLogChannel": channel_id
+        })
+    else:
+        # update guild document
+        guildCollection.update_one(
+            {"id": {"$eq": Int64(server_id)}},
+            {"$set": {"radarLogChannel": channel_id}}
+        )
+
+def getLogChannel(channel_type, server_id):
     db = client["dotproduct"]
     guildCollection = db["guilds"]
     
@@ -131,4 +148,14 @@ def getLogChannel(server_id):
     if not guild:
         return None, 8
     else:
-        return guild[0]["logChannel"], None
+        if channel_type == 1:
+            return guild[0]["patrolLogChannel"], None
+        
+def addForceRadarKeywords(threat_level, keyword, server_id):
+    db = client["dotproduct"]
+    guildCollection = db["guilds"]
+    guild = list(guildCollection.find({"id": server_id}))
+    if not guild:
+        pass
+
+    

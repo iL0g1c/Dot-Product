@@ -15,4 +15,6 @@ def getErrorMessage(error):
         case 7:
             return "Could not find that event in the database."
         case 8:
-            return "You have not set a log channel yet. Use /setChannel"
+            return "You have not set a patrol log channel yet. Use /setChannel"
+        case 9:
+            return "You have not set a radar log channel yet. Use /setChannel"

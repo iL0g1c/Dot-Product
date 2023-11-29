@@ -3,13 +3,12 @@ from discord import app_commands
 from discord.ext import commands
 import os
 from dotenv import load_dotenv
-import asyncio
 
 from errors import getErrorMessage
-from admin import makeSuperuser, savePatrolChannel
+from admin import makeSuperuser, savePatrolChannel, saveAutomatedRadarChannel
 
 load_dotenv()
-BOT_TOKEN = os.getenv("DISCORD_TOKEN")
+BOT_TOKEN = os.getenv("DISCORD_ALPHA_TOKEN")
 
 class DotProductClient(commands.Bot):
     def __init__(self):
@@ -38,7 +37,7 @@ class DotProductClient(commands.Bot):
         print("Complete.")
     
     async def _load_extensions(self):
-        for extension in ("patrolLogging",):
+        for extension in ("patrolLogging","radar"):
             await self.load_extension(f"cogs.{extension}")
             
 client = DotProductClient()
@@ -84,8 +83,17 @@ async def superuser(interaction: discord.Interaction, action: app_commands.Choic
 
 @client.tree.command(name="setchannel", description="Set the channel for patrol logs to be posted in.")
 @app_commands.describe(channel="The ID of the channel to recieve patrol logs in.")
-async def setChannel(interaction: discord.Interaction, channel: discord.TextChannel):
-    savePatrolChannel(channel.id, interaction.guild.id)
+@app_commands.choices(
+    channel_type=[
+        app_commands.Choice(name="Patrol Logs", value=1),
+        app_commands.Choice(name="Radar Logs", value=2)
+    ]
+)
+async def setChannel(interaction: discord.Interaction, channel_type: app_commands.Choice[int], channel: discord.TextChannel):
+    if channel_type.value == 1:
+        savePatrolChannel(channel.id, interaction.guild.id)
+    elif channel_type.value == 2:
+        saveAutomatedRadarChannel(channel.id, interaction.guild.id)
     embed = discord.Embed(
         title = f"Successfully set the log channel to: {channel.name}",
         color = discord.Colour.red()

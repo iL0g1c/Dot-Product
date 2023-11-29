@@ -1,4 +1,5 @@
 import discord
+import discord.colour
 from discord import app_commands
 from discord.ext import commands
 from discord.interactions import Interaction
@@ -18,7 +19,7 @@ class PatrolLogging(commands.Cog):
         self.client = bot
         
     @app_commands.command(name="patrol", description="Create a patrol.")
-    async def patrol(self, interaction: discord.Interaction):
+    async def patrol(self, interaction: Interaction):
         view = Patrol(self.client)
         view.author_id = interaction.user.id
 
@@ -45,7 +46,7 @@ class PatrolLogging(commands.Cog):
             app_commands.Choice(name="all", value="all")
         ]
     )
-    async def top(self, interaction: discord.Interaction, mode: app_commands.Choice[str], time_span: typing.Optional[app_commands.Choice[str]]):
+    async def top(self, interaction: Interaction, mode: app_commands.Choice[str], time_span: typing.Optional[app_commands.Choice[str]]):
         if time_span == None:
             time_span = app_commands.Choice(name="month", value="month")
         raw_events = getLeaderboard(interaction.guild.id, mode.value, time_span.value)
@@ -81,7 +82,7 @@ class PatrolLogging(commands.Cog):
             app_commands.Choice(name="sars", value="sars")
         ]
     )
-    async def userlogs(self, interaction: discord.Interaction, user: discord.Member, mode: app_commands.Choice[str], items: typing.Optional[str]):
+    async def userlogs(self, interaction: Interaction, user: discord.Member, mode: app_commands.Choice[str], items: typing.Optional[str]):
         if items == None:
             items = 10
         view = UserLogs(user, interaction.guild.id, mode.value, items)
@@ -91,7 +92,7 @@ class PatrolLogging(commands.Cog):
 
     @app_commands.command(name="remev", description="Remove an event (patrol/kill/etc) from your server.")
     @app_commands.describe(event_id="Event IDs are listed using the userlogs command.")
-    async def remev(self, interaction: discord.Interaction, event_id: int):
+    async def remev(self, interaction: Interaction, event_id: int):
         error = removeEvent(interaction.user.id, interaction.guild.id, event_id)
         if error:
             error_msg = getErrorMessage(error)
@@ -117,7 +118,7 @@ class DeleteOpenPatrols(discord.ui.View):
         style = discord.ButtonStyle.green,
         label = "Yes",
     )
-    async def yes(self, interaction: discord.Interaction, button: discord.ui.button):
+    async def yes(self, interaction: Interaction, button: discord.ui.button):
         embed = discord.Embed(
             title = "Deletion Complete",
             description = "Try opening a patrol again.",
@@ -130,7 +131,7 @@ class DeleteOpenPatrols(discord.ui.View):
         style = discord.ButtonStyle.red,
         label = "No"
     )
-    async def no(self, interaction: discord.Interaction, button: discord.ui.button):
+    async def no(self, interaction: Interaction, button: discord.ui.button):
         embed = discord.Embed(
             title = "Deletion Declined",
             color = discord.Colour.blue()
@@ -172,7 +173,7 @@ class Patrol(discord.ui.View):
             )
             self.patrolView.add_item(self)
 
-        async def callback(self, interaction: discord.Interaction):
+        async def callback(self, interaction: Interaction):
             datetime_amount = datetime.now().replace(microsecond=0)
             event_id, error = patrolOn(interaction.user.id, interaction.guild.id, datetime_amount, self.patrolView.selectedPatrolType)
             if error == 1:
@@ -209,7 +210,7 @@ class Patrol(discord.ui.View):
             self.patrolView.add_item(self)
             self.kills = 0
             
-        async def callback(self, interaction: discord.Interaction):
+        async def callback(self, interaction: Interaction):
             datetime_amount = datetime.now().replace(microsecond=0)
             kill(interaction.user.id, interaction.guild.id, datetime_amount)
             self.kills += 1
@@ -229,7 +230,7 @@ class Patrol(discord.ui.View):
             self.patrolView.add_item(self)
             self.disables = 0
 
-        async def callback(self, interaction: discord.Interaction):
+        async def callback(self, interaction: Interaction):
             datetime_amount = datetime.now().replace(microsecond=0)
             disable(interaction.user.id, interaction.guild.id, datetime_amount)
             self.disables += 1
@@ -247,7 +248,7 @@ class Patrol(discord.ui.View):
             )
             self.patrolView.add_item(self)
     
-        async def callback(self, interaction: discord.Interaction):
+        async def callback(self, interaction: Interaction):
             self.datetime_amount = datetime.now().replace(microsecond=0)
             self.duration, self.start_time, self.event_id, self.patrol_type = patrolOff(interaction.user.id, interaction.guild.id, self.datetime_amount)
             self.patrolView.infoModal = Patrol.InfoModal(self.patrolView, self, self.patrolView.client)
@@ -281,7 +282,7 @@ class Patrol(discord.ui.View):
             )
             self.add_item(self.description)
 
-        async def on_submit(self, interaction: discord.Interaction):
+        async def on_submit(self, interaction: Interaction):
             logEmbed = discord.Embed(
                 title = "Patrol Log",
                 description = f"{interaction.user.name} has completed their patrol.\n **Location:** {self.location.value}\n **Description:** {self.description.value}",
@@ -293,7 +294,7 @@ class Patrol(discord.ui.View):
             logEmbed.add_field(name = "End Time: ", value = self.patrolStats.datetime_amount)
             logEmbed.add_field(name = "Duration: ", value = self.patrolStats.duration)
             logEmbed.add_field(name = "ID: ", value = self.patrolStats.event_id)
-            channel_id, error = getLogChannel(interaction.guild.id)
+            channel_id, error = getLogChannel(1, interaction.guild.id)
             if error:
                 error_msg = getErrorMessage(error)
                 errorEmbed = discord.Embed(
@@ -335,7 +336,7 @@ class Patrol(discord.ui.View):
                 row=0
             )
             self.patrolView.add_item(self)
-        async def callback(self, interaction: discord.Interaction):
+        async def callback(self, interaction: Interaction):
             self.patrolView.selectedPatrolType = self.values[0]
             startPatrolButton = [x for x in self.patrolView.children if x.custom_id == "start"][0]
             startPatrolButton.disabled = False
@@ -387,7 +388,7 @@ class UserLogs(discord.ui.View):
             )
             self.userlogsView.add_item(self)
     
-        async def callback(self, interaction: discord.Interaction):
+        async def callback(self, interaction: Interaction):
             self.userlogsView.page += 1
             description, edge_alert, error = updatePage(self.userlogsView.user.id, interaction.guild.id, self.userlogsView.mode, self.userlogsView.items, self.userlogsView.page)
             if error == 5:
@@ -420,7 +421,7 @@ class UserLogs(discord.ui.View):
             )
             self.userlogsView.add_item(self)
         
-        async def callback(self, interaction: discord.Interaction):
+        async def callback(self, interaction: Interaction):
             self.userlogsView.page -= 1
             description, edge_alert, error = updatePage(self.userlogsView.user.id, interaction.guild.id, self.userlogsView.mode, self.userlogsView.items, self.userlogsView.page)
 

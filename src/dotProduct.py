@@ -8,7 +8,7 @@ from errors import getErrorMessage
 from admin import makeSuperuser, savePatrolChannel, saveAutomatedRadarChannel
 
 load_dotenv()
-BOT_TOKEN = os.getenv("DISCORD_TOKEN")
+BOT_TOKEN = os.getenv("DISCORD_ALPHA_TOKEN")
 
 class DotProductClient(commands.Bot):
     def __init__(self):
@@ -37,7 +37,7 @@ class DotProductClient(commands.Bot):
         print("Complete.")
     
     async def _load_extensions(self):
-        for extension in ("patrolLogging",):
+        for extension in ("patrolLogging","radar"):
             await self.load_extension(f"cogs.{extension}")
             
 client = DotProductClient()
